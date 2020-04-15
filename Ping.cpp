@@ -16,6 +16,8 @@
 #include <cstdlib>
 #include <errno.h>
 #include <sys/types.h> 
+#include <netinet/ip6.h>
+#include <netinet/icmp6.h>
 #define PORT 80
 #define SIZE_INT sizeof(int)
 using namespace std;
@@ -93,9 +95,83 @@ void ping_addr(char* argv[]){
     }
 }
 
+void ping_ipv6(char* argv[]){
+    struct addrinfo h;
+    //struct ip6_hdr ip6;
+    struct sockaddr_in6 sock_addr;
+    struct icmp6_hdr icmp;
+    char send_buf[sizeof(icmp) + SIZE_INT];
+    char recieve_buf[sizeof(icmp) + SIZE_INT];
+    int amt_sent = 0;
+    int amt_recieved = 0;
+    int sock;
+    int pton_result;
+
+    memset(&icmp, 0, sizeof(icmp));
+    memset(&sock_addr, 0, sizeof(sock_addr));
+
+    sock = socket(AF_INET6, SOCK_DGRAM, IPPROTO_ICMPV6);//IPPROTO_ICMPV6); //CHANGE TO IPPRONT_ICMPV6 for ipv6
+    //Use SOCK_DGRAM for UDP to determine quality of network
+    if(sock < 0) { 
+        cout<<"Error: "<<errno<<endl;
+        assert(false);
+    }
+
+    sock_addr.sin6_port = htons(PORT);
+    sock_addr.sin6_family = AF_INET6; //CHANGE TO AF_INET6 for ipv6
+
+    pton_result = inet_pton(AF_INET6, argv[1], &sock_addr.sin6_addr);//CHANGE TO AF_INET6 for ipv6
+    assert(pton_result != 0);
+    if(pton_result<0){
+        cout<<"Error: "<<errno<<endl;
+        assert(false);
+    }
+
+    icmp.icmp6_type = ICMP6_ECHO_REQUEST;
+
+    memcpy(send_buf, &icmp, sizeof(icmp));
+    cout<<sizeof(icmp)<<" : "<<sizeof(int)<<endl;
     
+    struct timeval timeout;
+    timeout.tv_sec = 1;
+    timeout.tv_usec = 0;
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)); //CODE TO SET TIEMOUTS
+    
+    while(true){
+        struct icmphdr recieved;
+        int recieved_num = 0;
+        socklen_t trash = 0;
+        int rec;
+        int send_res;
+
+        ++amt_sent;
+        memcpy(send_buf+sizeof(icmp), &amt_sent, SIZE_INT);
+
+        //Send packet with icmp struct and amt_sent 
+        send_res = sendto(sock, send_buf, sizeof(icmp6_hdr) + SIZE_INT,0, (struct sockaddr*)&sock_addr,sizeof(sock_addr));
+        if(send_res<0){
+            cout<<"Error: "<<errno<<endl; assert(false);
+        }
+        cout<<"Sent and waititng"<<endl;
+        rec = recvfrom(sock, recieve_buf, sizeof(recieve_buf), 0, NULL, &trash);
+        if(rec<0){
+            cout<<"Error: "<<errno<<endl;
+            if(errno == EAGAIN){
+                cout<<"Packet Lost!";
+            }
+            else{assert(false);}
+        }
+        else{
+            memcpy(&recieved, recieve_buf, sizeof(recieved));
+            assert(recieved.type == ICMP6_ECHO_REPLY);        //validate that packet is correct
+            memcpy(&recieved_num, &recieve_buf[sizeof(icmphdr)],4);
+            cout<<"REPLY: "<<recieved_num<<endl;
+        }
+    }
+}
 
 int main(int argc, char *argv[]){
     assert(argc>1);
+    ping_ipv6(argv);
     ping_addr(argv);
 }
