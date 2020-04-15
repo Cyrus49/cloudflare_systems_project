@@ -1,2 +1,2 @@
 run:
-	g++ Ping.cpp -o Ping
+	g++ Ping.cpp -g -o Ping
