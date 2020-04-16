@@ -23,7 +23,9 @@
 using namespace std;
 //http://man7.org/linux/man-pages/man7/icmp.7.html
 //sudo sysctl -w net.ipv4.ping_group_range="0 65535"
-void ping_addr(char* argv[]){
+//-f: flood
+//
+void ping_addr(char* ip_addr){
     struct sockaddr_in sock_addr;
     struct icmphdr icmp;
     char send_buf[sizeof(icmp) + SIZE_INT];
@@ -46,7 +48,7 @@ void ping_addr(char* argv[]){
     sock_addr.sin_port = htons(PORT);
     sock_addr.sin_family = AF_INET; //CHANGE TO AF_INET6 for ipv6
 
-    pton_result = inet_pton(AF_INET, argv[1], &sock_addr.sin_addr);//CHANGE TO AF_INET6 for ipv6
+    pton_result = inet_pton(AF_INET, ip_addr, &sock_addr.sin_addr);//CHANGE TO AF_INET6 for ipv6
     assert(pton_result != 0);
     if(pton_result<0){
         cout<<"Error: "<<errno<<endl;
@@ -95,8 +97,7 @@ void ping_addr(char* argv[]){
     }
 }
 
-void ping_ipv6(char* argv[]){
-    struct addrinfo h;
+void ping_ipv6(char* ip6_addr){
     //struct ip6_hdr ip6;
     struct sockaddr_in6 sock_addr;
     struct icmp6_hdr icmp;
@@ -109,7 +110,6 @@ void ping_ipv6(char* argv[]){
 
     memset(&icmp, 0, sizeof(icmp));
     memset(&sock_addr, 0, sizeof(sock_addr));
-
     sock = socket(AF_INET6, SOCK_DGRAM, IPPROTO_ICMPV6);//IPPROTO_ICMPV6); //CHANGE TO IPPRONT_ICMPV6 for ipv6
     //Use SOCK_DGRAM for UDP to determine quality of network
     if(sock < 0) { 
@@ -120,7 +120,7 @@ void ping_ipv6(char* argv[]){
     sock_addr.sin6_port = htons(PORT);
     sock_addr.sin6_family = AF_INET6; //CHANGE TO AF_INET6 for ipv6
 
-    pton_result = inet_pton(AF_INET6, argv[1], &sock_addr.sin6_addr);//CHANGE TO AF_INET6 for ipv6
+    pton_result = inet_pton(AF_INET6, ip6_addr, &sock_addr.sin6_addr);//CHANGE TO AF_INET6 for ipv6
     assert(pton_result != 0);
     if(pton_result<0){
         cout<<"Error: "<<errno<<endl;
@@ -171,7 +171,42 @@ void ping_ipv6(char* argv[]){
 }
 
 int main(int argc, char *argv[]){
-    assert(argc>1);
-    ping_ipv6(argv);
-    ping_addr(argv);
+    struct addrinfo address;
+    struct addrinfo * result, * p;
+    void *h;
+    struct in6_addr help;
+    struct hostent *help2electricboogaloo;
+    memset(&address, 0, sizeof(addrinfo));
+    memset(&result, 0, sizeof(addrinfo));
+
+    address.ai_family = AF_UNSPEC;
+    if(getaddrinfo(argv[1], NULL, &address, &result)){
+        assert(false);
+    }
+    char* addr = (char*) malloc(1000);
+    strcpy(addr, argv[1]);
+    if(inet_pton(AF_INET, addr, &help)> 0){//Valid ipv4 addresss
+        cout<<"HERE"<<endl;
+        ping_addr(argv[1]);
+    } 
+    if(inet_pton(AF_INET6, addr, &help)> 0){//Valid ipv6 addresss
+        cout<<"HERE2"<<endl;
+        ping_ipv6(argv[1]);
+    } 
+
+    
+    char host[512];
+    char addstr[512];
+    for(p = result; p!=NULL; p = p->ai_next){
+        if(getnameinfo(p->ai_addr, p->ai_addrlen, host, 512, NULL, 0, 0)){
+            assert(false);
+        }
+        h = &((struct sockaddr_in*)p->ai_addr )->sin_addr;
+        cout<<host<<endl;
+        cout<<inet_ntop(AF_INET,h,addstr,100)<<endl;
+        cout<<"STR"<<addstr<<" "<<p->ai_family<<endl;
+        ping_addr(addstr);
+
+    }
+
 }
