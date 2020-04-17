@@ -1,3 +1,4 @@
+void clear_recieve_buffer();
 int ping_addr(char*);
 int ping_ipv6(char*);
 void setup_ipv6(char*);
