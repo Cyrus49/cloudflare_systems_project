@@ -4,6 +4,7 @@
 ### Usage: 
 
 make: builds executable
+
 ./Ping (URL or IP address to ping - Works with IPv4 and IPv6)
 
 NOTE!: Due to limitations of my home network, I was unable to test the IPv6 functionality beyond localhost(::1)
